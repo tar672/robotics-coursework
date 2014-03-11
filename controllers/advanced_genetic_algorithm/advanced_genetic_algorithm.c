@@ -7,6 +7,7 @@
 #include <webots/robot.h>
 #include <webots/differential_wheels.h>
 #include <webots/receiver.h>
+#include <webots/emitter.h>
 #include <webots/distance_sensor.h>
 #include <assert.h>
 #include <string.h>
@@ -18,15 +19,30 @@
 
 // sensor to wheels multiplication matrix
 // each each sensor has a weight for each wheel
-double matrix[NUM_SENSORS][NUM_WHEELS]; 
+double matrix[NUM_SENSORS][NUM_WHEELS];
+
+// 3 IR ground color sensors
+#define NB_GROUND_SENS 3
+#define GS_WHITE 900
+#define GS_LEFT 0
+#define GS_CENTER 1
+#define GS_RIGHT 2
+
+WbDeviceTag gs[NB_GROUND_SENS]; /* ground sensors */
+unsigned short gs_value[NB_GROUND_SENS]={0,0,0};
 
 WbDeviceTag sensors[NUM_SENSORS];  // proximity sensors
 WbDeviceTag receiver;              // for receiving genes from Supervisor
+WbDeviceTag robot_emitter;
+
+double f[1];
 
 // check if a new set of genes was sent by the Supervisor
 // in this case start using these new genes immediately
 void check_for_new_genes() {
   if (wb_receiver_get_queue_length(receiver) > 0) {
+  
+    f[0] = 0;
     // check that the number of genes received match what is expected
     assert(wb_receiver_get_data_size(receiver) == GENOTYPE_SIZE * sizeof(double));
     
@@ -55,6 +71,12 @@ void sense_compute_and_actuate() {
   int i, j;
   for (i = 0; i < NUM_SENSORS; i++)
     sensor_values[i] = wb_distance_sensor_get_value(sensors[i]);
+    
+  // Report results to supervisor
+  for(i=0;i<NB_GROUND_SENS;i++) gs_value[i] = wb_distance_sensor_get_value(gs[i]);
+  
+  if(gs_value[1] < 400) f[0] ++;
+  wb_emitter_send(robot_emitter, f, sizeof(f));
 
   // compute actuation using Braitenberg's algorithm:
   // The speed of each wheel is computed by summing the value
@@ -75,6 +97,8 @@ void sense_compute_and_actuate() {
 }
 
 int main(int argc, const char *argv[]) {
+
+  f[0] = 0;
   
   wb_robot_init();  // initialize Webots
 
@@ -89,10 +113,18 @@ int main(int argc, const char *argv[]) {
     sensors[i] = wb_robot_get_device(name);
     wb_distance_sensor_enable(sensors[i], time_step);
   }
+  for (i = 0; i < NB_GROUND_SENS; i++) {
+    sprintf(name, "gs%d", i);
+    gs[i] = wb_robot_get_device(name); /* ground sensors */
+    wb_distance_sensor_enable(gs[i],time_step);
+  }
     
   // find and enable receiver
   receiver = wb_robot_get_device("receiver");
   wb_receiver_enable(receiver, time_step);
+  
+  //find and enable robot_emitter
+  robot_emitter = wb_robot_get_device("emitter");
   
   // initialize matrix to zero, hence the robot 
   // wheels will initially be stopped

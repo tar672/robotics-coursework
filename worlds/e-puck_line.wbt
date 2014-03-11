@@ -215,15 +215,20 @@ DEF EPUCK EPuck {
   rotation 2.44405e-06 1 0.000191217 -3.12238
   controller "advanced_genetic_algorithm"
   camera_pixelSize 0
+  emitter_channel 2
   groundSensorsSlot [
     EPuck_GroundSensorsModule {
     }
   ]
 }
-
 DEF GA Supervisor {
   children [
+    Receiver {
+      name "super_receiver"
+      channel 2
+    }
     Emitter {
+      name "super_emitter"
       channel 1
     }
     Display {

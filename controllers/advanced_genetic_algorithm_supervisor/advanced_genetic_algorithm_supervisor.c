@@ -10,9 +10,12 @@
 #include <webots/robot.h>
 #include <webots/emitter.h>
 #include <webots/display.h>
+#include <webots/receiver.h>
 #include <string.h>
+#include <assert.h>
 #include <math.h>
 #include <stdio.h>
+#include <unistd.h>
 
 static const int POPULATION_SIZE = 50;
 static const int NUM_GENERATIONS = 25;
@@ -27,7 +30,8 @@ static const int NUM_WHEELS  = 2;
 enum { X, Y, Z };
 
 static int time_step;
-static WbDeviceTag emitter;   // to send genes to robot
+static WbDeviceTag super_emitter;   // to send genes to robot
+static WbDeviceTag super_receiver;
 static WbDeviceTag display;   // to display the fitness evolution
 static int display_width, display_height;
 
@@ -40,13 +44,10 @@ static WbFieldRef robot_rotation;
 static double robot_trans0[3];  // a translation needs 3 doubles
 static double robot_rot0[4];    // a rotation needs 4 doubles
   
-// for reading or setting the load's position
-static WbFieldRef load_translation;
-static double load_trans0[3];
-  
 // start with a demo until the user presses the 'O' key
 // (change this if you want)
-static bool demo = true;
+static bool demo = false;
+
 
 void draw_scaled_line(int generation, double y1, double y2) {
   const double XSCALE = (double)display_width / NUM_GENERATIONS;
@@ -79,32 +80,44 @@ void run_seconds(double seconds) {
       demo = false;
       return; // interrupt demo and start GA optimization
     }
-
     wb_robot_step(time_step);
   }
 }
 
 // compute fitness as the euclidian distance that the load was pushed
-double measure_fitness() {
 /*
+double measure_fitness() {
+
   const double *load_trans = wb_supervisor_field_get_sf_vec3f(load_translation);
   double dx = load_trans[X] - load_trans0[X];
   double dz = load_trans[Z] - load_trans0[Z];
   return sqrt(dx * dx + dz * dz);
-  */
+  
   return 1.00;
+}
+*/
+double measure_fitness() {
+ 
+  const double *fitness;  
+  assert(wb_receiver_get_data_size(super_receiver) == sizeof(double));
+  fitness = wb_receiver_get_data(super_receiver);
+      
+  while (wb_receiver_get_queue_length(super_receiver) > 0){
+    wb_receiver_next_packet(super_receiver);
+  };
+
+  return fitness[0];
 }
 
 // evaluate one genotype at a time
 void evaluate_genotype(Genotype genotype) {
   
   // send genotype to robot for evaluation
-  wb_emitter_send(emitter, genotype_get_genes(genotype), GENOTYPE_SIZE * sizeof(double));
+  wb_emitter_send(super_emitter, genotype_get_genes(genotype), GENOTYPE_SIZE * sizeof(double));
   
   // reset robot and load position
   wb_supervisor_field_set_sf_vec3f(robot_translation, robot_trans0);
   wb_supervisor_field_set_sf_rotation(robot_rotation, robot_rot0);
-  wb_supervisor_field_set_sf_vec3f(load_translation, load_trans0);
 
   // evaluation genotype during one minute
   run_seconds(60.0);
@@ -122,6 +135,7 @@ void run_optimization() {
   printf("---\n");
   printf("starting GA optimization ...\n");
   printf("population size is %d, genome size is %d\n", POPULATION_SIZE, GENOTYPE_SIZE);
+  
 
   int i, j;
   for  (i = 0; i < NUM_GENERATIONS; i++) {    
@@ -194,7 +208,10 @@ int main(int argc, const char *argv[]) {
   time_step = wb_robot_get_basic_time_step();
 
   // the emitter to send genotype to robot
-  emitter = wb_robot_get_device("emitter");
+  super_emitter = wb_robot_get_device("super_emitter");
+  
+  super_receiver = wb_robot_get_device("super_receiver");
+  wb_receiver_enable(super_receiver, time_step);
   
   // to display the fitness evolution
   display = wb_robot_get_device("display");
