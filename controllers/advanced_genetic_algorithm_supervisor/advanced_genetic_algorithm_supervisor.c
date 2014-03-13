@@ -18,11 +18,11 @@
 #include <unistd.h>
 
 static const int POPULATION_SIZE = 50;
-static const int NUM_GENERATIONS = 25;
+static const int NUM_GENERATIONS = 4;
 static const char *FILE_NAME = "fittest.txt";
 
 // must match the values in the advanced_genetic_algorithm.c code
-static const int NUM_SENSORS = 8;
+static const int NUM_SENSORS = 11;
 static const int NUM_WHEELS  = 2;
 #define GENOTYPE_SIZE (NUM_SENSORS * NUM_WHEELS)
 
@@ -46,7 +46,7 @@ static double robot_rot0[4];    // a rotation needs 4 doubles
   
 // start with a demo until the user presses the 'O' key
 // (change this if you want)
-static bool demo = false;
+static bool demo = true;
 
 
 void draw_scaled_line(int generation, double y1, double y2) {
@@ -98,13 +98,15 @@ double measure_fitness() {
 */
 double measure_fitness() {
  
-  const double *fitness;  
+  double *fitness;  
   assert(wb_receiver_get_data_size(super_receiver) == sizeof(double));
-  fitness = wb_receiver_get_data(super_receiver);
+  
       
-  while (wb_receiver_get_queue_length(super_receiver) > 0){
+  while (wb_receiver_get_queue_length(super_receiver) > 1){
     wb_receiver_next_packet(super_receiver);
   };
+  
+  fitness = wb_receiver_get_data(super_receiver);
 
   return fitness[0];
 }

@@ -13,7 +13,7 @@
 #include <string.h>
 #include <stdio.h>
 
-#define NUM_SENSORS 8
+#define NUM_SENSORS 11
 #define NUM_WHEELS 2
 #define GENOTYPE_SIZE (NUM_SENSORS * NUM_WHEELS)
 
@@ -28,14 +28,18 @@ double matrix[NUM_SENSORS][NUM_WHEELS];
 #define GS_CENTER 1
 #define GS_RIGHT 2
 
-WbDeviceTag gs[NB_GROUND_SENS]; /* ground sensors */
+#define NB_DIST_SENS 8
+
 unsigned short gs_value[NB_GROUND_SENS]={0,0,0};
 
 WbDeviceTag sensors[NUM_SENSORS];  // proximity sensors
 WbDeviceTag receiver;              // for receiving genes from Supervisor
 WbDeviceTag robot_emitter;
+WbDeviceTag robot;
 
 double f[1];
+int mili = 0;
+double cur_x, prev_x, cur_y, prev_y;
 
 // check if a new set of genes was sent by the Supervisor
 // in this case start using these new genes immediately
@@ -73,10 +77,34 @@ void sense_compute_and_actuate() {
     sensor_values[i] = wb_distance_sensor_get_value(sensors[i]);
     
   // Report results to supervisor
-  for(i=0;i<NB_GROUND_SENS;i++) gs_value[i] = wb_distance_sensor_get_value(gs[i]);
+  for(i = NB_DIST_SENS; i < NUM_SENSORS; i ++) gs_value[i - NB_DIST_SENS] = sensor_values[i];
+  
   
   if(gs_value[1] < 400) f[0] ++;
-  wb_emitter_send(robot_emitter, f, sizeof(f));
+  else f[0] -= 1;
+  if(gs_value[0] < 400) f[0] ++;
+  else f[0] -= 1;
+  if(gs_value[2] < 400) f[0] ++;
+  else f[0] -= 1;
+  
+  if(gs_value[1] > 400 && gs_value[1] < 900) f[0] -= 100;
+  
+  
+  for(i=0; i < NB_DIST_SENS; i ++) {
+    if(sensor_values[i] > 2000) f[0] -= 1;
+  }
+  mili ++;
+  if( mili > 1000){
+    mili = 0;
+    
+    prev_y = 
+    
+    
+    if(abs(prev_x - cur_x) < 0.01 && abs(prev_y - cur_y) < 0.01) f[0] -= 1000;
+  }
+  
+  
+  wb_emitter_send(robot_emitter, f, sizeof(double));
 
   // compute actuation using Braitenberg's algorithm:
   // The speed of each wheel is computed by summing the value
@@ -108,20 +136,24 @@ int main(int argc, const char *argv[]) {
   // find and enable proximity sensors
   char name[32];
   int i;
-  for (i = 0; i < NUM_SENSORS; i++) {
+  for (i = 0; i < NB_DIST_SENS; i++) {
     sprintf(name, "ps%d", i);
-    sensors[i] = wb_robot_get_device(name);
-    wb_distance_sensor_enable(sensors[i], time_step);
+    sensors[i] = wb_robot_get_device(name); /* proximity sensors */
+    wb_distance_sensor_enable(sensors[i],time_step);
   }
-  for (i = 0; i < NB_GROUND_SENS; i++) {
-    sprintf(name, "gs%d", i);
-    gs[i] = wb_robot_get_device(name); /* ground sensors */
-    wb_distance_sensor_enable(gs[i],time_step);
+  for (; i < NUM_SENSORS; i++) {
+    sprintf(name, "gs%d", i-NB_DIST_SENS);
+    sensors[i] = wb_robot_get_device(name); /* ground sensors */
+    wb_distance_sensor_enable(sensors[i],time_step);
   }
     
   // find and enable receiver
   receiver = wb_robot_get_device("receiver");
   wb_receiver_enable(receiver, time_step);
+  
+  robot = wb_robot_get_device("EPUCK");
+  
+  
   
   //find and enable robot_emitter
   robot_emitter = wb_robot_get_device("emitter");
