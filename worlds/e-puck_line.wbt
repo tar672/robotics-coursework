@@ -216,6 +216,10 @@ DEF EPUCK EPuck {
   controller "advanced_genetic_algorithm"
   camera_pixelSize 0
   emitter_channel 2
+  turretSlot [
+    GPS {
+    }
+  ]
   groundSensorsSlot [
     EPuck_GroundSensorsModule {
     }
