@@ -18,7 +18,7 @@
 #include <unistd.h>
 
 static const int POPULATION_SIZE = 25;
-static const int NUM_GENERATIONS = 5;
+static const int NUM_GENERATIONS = 10;
 static const char *FILE_NAME = "fittest.txt";
 
 // must match the values in the advanced_genetic_algorithm.c code

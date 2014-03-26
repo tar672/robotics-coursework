@@ -105,17 +105,47 @@ void sense_compute_and_actuate() {
   int i, j;
   for (i = 0; i < NUM_SENSORS; i++)
     sensor_values[i] = wb_distance_sensor_get_value(sensors[i]);
-    
   
-  // Report results to supervisor
-  for(i = NB_DIST_SENS; i < NUM_SENSORS; i ++) gs_value[i - NB_DIST_SENS] = sensor_values[i];
+  for(i = NB_DIST_SENS; i < NUM_SENSORS; i ++)
+    gs_value[i - NB_DIST_SENS] = sensor_values[i];
   
   int touching = 0;
   for(i=0; i < NB_DIST_SENS; i ++) {
-    if(sensor_values[i] > 2000) touching = 1;
+    if(sensor_values[i] > 200) touching = 1;
+  }
+  int dodging = 0;
+  if(!touching) {
+    for(i=0; i < NB_DIST_SENS; i ++) {
+      if(sensor_values[i] > 2000) dodging = 1;
+    }
   }
   
-  /*
+  
+  //Check if stuck
+  if(wb_differential_wheels_get_left_speed() >= 999 && wb_differential_wheels_get_right_speed() >= 999) {
+    f[0] -= 3;
+  }
+  
+
+  
+  if(touching && !dodging) {
+    for(i=0; i < 3; i ++) 
+     if(gs_value[i] < 500) f[0] -= 1;
+  }
+  if(!touching && dodging) {
+     if(gs_value[1] > 400) f[0] ++;
+  }
+  if(!touching && !dodging) {
+    //printf("NOT touching\n");
+    if(gs_value[1] < 400) f[0] ++;
+    else f[0] -= 2;
+    if(gs_value[0] < 400) f[0] += 2;
+    else  f[0] -= 2;
+    if(gs_value[2] < 400) f[0] ++;
+    else f[0] -= 2;
+  }
+  
+    /*
   for(i=0; i < 3; i ++) {
     if(gs_value[i] > 400 && gs_value[i] < 900) f[0] -= 2;
     printf("gs: %d\n", gs_value[i]);
@@ -123,32 +153,10 @@ void sense_compute_and_actuate() {
   printf("\n");
   */
   
-  if(touching) {
-    for(i=0; i < 3; i ++) if(gs_value[i] < 500) f[0] -= 100;
-  }
-  
-  if(!touching) {
-    //printf("NOT touching\n");
-    if(gs_value[1] < 400) f[0] ++;
-    else f[0] -= 1;
-    if(gs_value[0] < 400) f[0] += 10;
-    else  f[0] -= 2;
-    if(gs_value[2] < 400) f[0] ++;
-    else f[0] -= 1;
-  }
-  
-  const double *cur_pos = wb_gps_get_values(gps);
-  
-  for(i=0; i < 3; i ++) {
-  
-    double dist = sqrt(pow((cur_pos[0] - checks_x[cur_check + i]), 2) + pow((cur_pos[2] - checks_z[cur_check + i]), 2));
-
   /*
-  printf("d: %f\n", dist);
-  printf("cc: %d\n", cur_check);
-  printf("x: %f z: %f\n", cur_pos[0], cur_pos[2]);
-  printf("x: %f z: %f\n", checks_x[cur_check], checks_z[cur_check]);
-  */
+  const double *cur_pos = wb_gps_get_values(gps);
+  for(i=0; i < 3; i ++) {
+    double dist = sqrt(pow((cur_pos[0] - checks_x[cur_check + i]), 2) + pow((cur_pos[2] - checks_z[cur_check + i]), 2));
     if(dist < 0.02) {
       f[0] += 500;
       printf("cc: %d\n", cur_check);
@@ -157,6 +165,7 @@ void sense_compute_and_actuate() {
       break;
     }
   }
+  */
   
   
   wb_emitter_send(robot_emitter, f, sizeof(double));
