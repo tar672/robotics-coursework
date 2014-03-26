@@ -109,10 +109,12 @@ void sense_compute_and_actuate() {
   for(i = NB_DIST_SENS; i < NUM_SENSORS; i ++)
     gs_value[i - NB_DIST_SENS] = sensor_values[i];
   
+  //Detect if the robot is touch an obstacle
   int touching = 0;
   for(i=0; i < NB_DIST_SENS; i ++) {
     if(sensor_values[i] > 200) touching = 1;
   }
+  //Detect if the robot is close to an abstacle
   int dodging = 0;
   if(!touching) {
     for(i=0; i < NB_DIST_SENS; i ++) {
@@ -120,23 +122,23 @@ void sense_compute_and_actuate() {
     }
   }
   
-  
-  //Check if stuck
+  //Check and punish if the robot is not moving
   if(wb_differential_wheels_get_left_speed() >= 999 && wb_differential_wheels_get_right_speed() >= 999) {
     f[0] -= 3;
   }
   
-
-  
+  //Punishment for being stuck over the line
   if(touching && !dodging) {
     for(i=0; i < 3; i ++) 
      if(gs_value[i] < 500) f[0] -= 1;
   }
+  //Reward for moving past an obstacle
   if(!touching && dodging) {
      if(gs_value[1] > 400) f[0] ++;
   }
+  //Reward for following the line
+  //Punish for loosing the line
   if(!touching && !dodging) {
-    //printf("NOT touching\n");
     if(gs_value[1] < 400) f[0] ++;
     else f[0] -= 2;
     if(gs_value[0] < 400) f[0] += 2;
